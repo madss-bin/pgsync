@@ -83,7 +83,7 @@ run_step() {
              exit 1
         fi
     done
-    
+    #eh
     echo -e "${C_GREEN}▕${C_PINK}$(printf "%0.s━" $(seq 1 40))${C_GREEN}▏ ${C_PINK}100%${NC}"
 }
 

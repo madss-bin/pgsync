@@ -2,6 +2,8 @@ name: Release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*'
 
@@ -37,9 +39,19 @@ jobs:
           tar -czvf pgsync-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz pgsync-${{ matrix.goos }}-${{ matrix.goarch }}
         fi
 
+    - name: Generate Tag
+      id: tag
+      run: |
+        if [[ ${{ github.ref }} == refs/tags/* ]]; then
+           echo "tag_name=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        else
+           echo "tag_name=latest" >> $GITHUB_OUTPUT
+        fi
+
     - name: Release
       uses: softprops/action-gh-release@v2
       with:
+        tag_name: ${{ steps.tag.outputs.tag_name }}
         files: |
           *.zip
           *.tar.gz
