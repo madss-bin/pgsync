@@ -97,41 +97,57 @@ fi
 hide_cursor
 show_logo
 
-if [ -f /etc/arch-release ]; then
-    DISTRO="arch"
-elif [ -f /etc/fedora-release ]; then
-    DISTRO="fedora"
-elif [ -f /etc/debian_version ]; then
-    DISTRO="ubuntu"
+# Detect OS
+OS="$(uname -s)"
+case "${OS}" in
+    Linux*)     MACHINE="linux" ;;
+    CYGWIN*|MINGW*|MSYS*|MINGW32*) MACHINE="windows" ;;
+    *)          echo -e "${C_PINK}Unsupported OS: ${OS}${NC}"; exit 1 ;;
+esac
+
+# Detect Architecture
+ARCH="$(uname -m)"
+case "${ARCH}" in
+    x86_64)  ARCH="amd64" ;;
+    aarch64) ARCH="arm64" ;;
+    arm64)   ARCH="arm64" ;;
+    *)       echo -e "${C_PINK}Unsupported Architecture: ${ARCH}${NC}"; exit 1 ;;
+esac
+
+# Fetch latest release version
+echo -e "${C_BLUE}Fetching latest release info...${NC}"
+LATEST_RELEASE=$(curl -s https://api.github.com/repos/madss-bin/pgsync/releases/latest | grep '"tag_name":' | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/')
+if [ -z "$LATEST_RELEASE" ]; then
+    echo -e "${C_PINK}Failed to fetch the latest release version. Ensure you have internet connectivity or check GitHub API limits.${NC}"
+    exit 1
+fi
+
+if [ "$MACHINE" = "windows" ]; then
+    ASSET_NAME="pgsync-windows-${ARCH}.zip"
+    DOWNLOAD_URL="https://github.com/madss-bin/pgsync/releases/download/${LATEST_RELEASE}/${ASSET_NAME}"
+    CMD_DOWNLOAD="curl -sL -o ${ASSET_NAME} ${DOWNLOAD_URL}"
+    CMD_EXTRACT="unzip -q -o ${ASSET_NAME}"
+    CMD_INSTALL="mkdir -p ~/bin && cp pgsync-windows-${ARCH}.exe ~/bin/pgsync.exe"
+    CMD_CHMOD="echo 'Ensure ~/bin is in your PATH. You may need to restart your terminal.'"
 else
-    DISTRO="unknown"
+    ASSET_NAME="pgsync-linux-${ARCH}.tar.gz"
+    DOWNLOAD_URL="https://github.com/madss-bin/pgsync/releases/download/${LATEST_RELEASE}/${ASSET_NAME}"
+    CMD_DOWNLOAD="curl -sL -o ${ASSET_NAME} ${DOWNLOAD_URL}"
+    CMD_EXTRACT="tar -xzf ${ASSET_NAME}"
+    if command -v sudo &> /dev/null; then
+        CMD_INSTALL="sudo cp pgsync-linux-${ARCH} /usr/local/bin/pgsync"
+        CMD_CHMOD="sudo chmod +x /usr/local/bin/pgsync"
+    else
+        CMD_INSTALL="cp pgsync-linux-${ARCH} /usr/local/bin/pgsync"
+        CMD_CHMOD="chmod +x /usr/local/bin/pgsync"
+    fi
 fi
 
-STEPS_DEPS=()
-if ! command -v go &> /dev/null; then
-   case $DISTRO in
-        "arch") STEPS_DEPS+=("sudo pacman -S --noconfirm go") ;;
-        "fedora") STEPS_DEPS+=("sudo dnf install -y golang") ;;
-        "ubuntu") 
-            STEPS_DEPS+=("sudo apt update")
-            STEPS_DEPS+=("sudo apt install -y golang-go") 
-            ;;
-        *)
-            echo -e "${C_PINK}Please install Go manually.${NC}"
-            exit 1
-            ;;
-    esac
-fi
+run_step "Downloading pgsync ${LATEST_RELEASE}" "$CMD_DOWNLOAD" "$CMD_EXTRACT"
+run_step "Installing pgsync" "$CMD_INSTALL" "$CMD_CHMOD"
 
-if [ ${#STEPS_DEPS[@]} -gt 0 ]; then
-    run_step "Installing Dependencies" "${STEPS_DEPS[@]}"
-fi
-
-CMD_BUILD="go build -o bin/pgsync ."
-CMD_INSTALL="sudo cp bin/pgsync /usr/local/bin/pgsync"
-CMD_CHMOD="sudo chmod +x /usr/local/bin/pgsync"
-
-run_step "Building and Installing" "$CMD_BUILD" "$CMD_INSTALL" "$CMD_CHMOD"
+# Cleanup artifacts
+rm -f "$ASSET_NAME" "pgsync-${MACHINE}-${ARCH}" "pgsync-${MACHINE}-${ARCH}.exe"
 
 echo
 echo -e "${C_GREEN}✓ pgsync installed successfully!${NC}"
