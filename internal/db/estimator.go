@@ -202,7 +202,7 @@ func getDBSize(url string) (string, error) {
 func getTableCount(url string) (int, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "psql", url, "-w", "-t", "-c", "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public';")
+	cmd := exec.CommandContext(ctx, "psql", url, "-w", "-t", "-c", "SELECT count(*) FROM information_schema.tables WHERE table_schema NOT IN ('information_schema', 'pg_catalog');")
 	out, err := cmd.CombinedOutput()
 	if ctx.Err() == context.DeadlineExceeded {
 		return 0, fmt.Errorf("connection timed out")

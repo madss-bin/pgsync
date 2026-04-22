@@ -7,7 +7,7 @@ import (
 )
 
 func GetTables(url string) ([]string, error) {
-	query := "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name;"
+	query := "SELECT table_schema || '.' || table_name FROM information_schema.tables WHERE table_schema NOT IN ('information_schema', 'pg_catalog') ORDER BY table_schema, table_name;"
 
 	cmd := exec.Command("psql", url, "-t", "-c", query)
 	out, err := cmd.CombinedOutput()
